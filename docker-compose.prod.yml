@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # Application service for production
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: acquisitions-app-prod
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env.production
+    environment:
+      # DATABASE_URL should be set in .env.production or injected via secrets
+      # Points to your Neon Cloud database (e.g., postgresql://...neon.tech/...)
+      NODE_ENV: production
+    volumes:
+      # Mount logs directory for persistent logging
+      - ./logs:/app/logs
+    restart: always
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - acquisitions-network
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+networks:
+  acquisitions-network:
+    driver: bridge

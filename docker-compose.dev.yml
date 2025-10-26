@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # Neon Local proxy for development
+  # Creates ephemeral database branches that are automatically deleted when container stops
+  neon-local:
+    image: neondatabase/neon_local:latest
+    container_name: acquisitions-neon-local
+    ports:
+      - '5432:5432'
+    env_file:
+      - .env.development
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "localhost", "-p", "5432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - acquisitions-network
+
+  # Application service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: acquisitions-app-dev
+    ports:
+      - '3000:3000'
+    env_file:
+      - .env.development
+    environment:
+      # Override DATABASE_URL to point to neon-local service
+      DATABASE_URL: postgresql://postgres:postgres@neon-local:5432/neondb
+    volumes:
+      # Mount source code for hot-reloading (optional for dev)
+      - ./src:/app/src:ro
+      # Mount logs directory
+      - ./logs:/app/logs
+    depends_on:
+      neon-local:
+        condition: service_healthy
+    networks:
+      - acquisitions-network
+    restart: unless-stopped
+
+networks:
+  acquisitions-network:
+    driver: bridge
