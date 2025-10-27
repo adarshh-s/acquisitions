@@ -3,7 +3,36 @@ import {slidingWindow} from '@arcjet/node';
 import logger from '#config/logger.js';
 
 const securityMiddleware = async (req, res, next) => {
+  // IMMEDIATELY bypass in non-production - check at the very top
+  const nodeEnv = process.env.NODE_ENV || 'development';
+
+  if (nodeEnv !== 'production') {
+    logger.info('Bypassing security middleware (NODE_ENV: ' + nodeEnv + ')');
+    return next();
+  }
+
   try {
+    // Whitelist legitimate tools (only runs in production)
+    const userAgent = req.get('User-Agent') || '';
+    const whitelistedUserAgents = [
+      'PostmanRuntime',
+      'insomnia',
+      'Thunder Client',
+      'HTTPie',
+      'curl',
+      'axios',
+      'node-fetch'
+    ];
+
+    const isWhitelisted = whitelistedUserAgents.some(agent =>
+      userAgent.toLowerCase().includes(agent.toLowerCase())
+    );
+
+    if (isWhitelisted) {
+      logger.info('Whitelisted user agent detected, bypassing checks', { userAgent });
+      return next();
+    }
+
     const role = req.user?.role || 'guest';
 
     let limit;
@@ -41,7 +70,8 @@ const securityMiddleware = async (req, res, next) => {
         logger.warn('Bot request blocked', {
           ip: req.ip,
           userAgent: req.get('User-Agent'),
-          path: req.path
+          path: req.path,
+          method: req.method
         });
         return res.status(403).json({
           error: 'Forbidden',
@@ -50,7 +80,7 @@ const securityMiddleware = async (req, res, next) => {
       }
 
       if (decision.reason.isShield) {
-        logger.warn('Shield Blocked Request', {
+        logger.warn('Shield blocked request', {
           ip: req.ip,
           userAgent: req.get('User-Agent'),
           path: req.path,
@@ -66,11 +96,12 @@ const securityMiddleware = async (req, res, next) => {
         logger.warn('Rate limit exceeded', {
           ip: req.ip,
           userAgent: req.get('User-Agent'),
-          path: req.path
+          path: req.path,
+          role
         });
         return res.status(429).json({
           error: 'Too Many Requests',
-          message: 'Too many requests'
+          message
         });
       }
     }
@@ -78,11 +109,14 @@ const securityMiddleware = async (req, res, next) => {
     next();
 
   } catch (e) {
-    console.log('Arcjet Middleware Error:', e);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: 'Something went wrong with security middleware'
+    logger.error('Arcjet middleware error:', {
+      error: e.message,
+      stack: e.stack,
+      path: req.path
     });
+
+    // Always continue on error to avoid breaking the app
+    next();
   }
 };
 

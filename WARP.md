@@ -4,13 +4,16 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Project Overview
 
-This is an Express.js REST API for user acquisitions using Node.js ES modules, Drizzle ORM with PostgreSQL (Neon serverless), and Zod for validation.
+Express.js REST API for user acquisitions using Node.js ES modules, Drizzle ORM with PostgreSQL (Neon serverless), Zod validation, and Arcjet security.
 
 ## Development Commands
 
 ### Running the Application
 ```bash
 npm run dev              # Start server with --watch (auto-restart on changes)
+npm start                # Start server in production mode
+npm run dev:docker       # Start with Docker + Neon Local (ephemeral branches)
+npm run prod:docker      # Start with Docker + Neon Cloud
 ```
 
 ### Code Quality
@@ -31,111 +34,133 @@ npm run db:studio        # Open Drizzle Studio (database GUI)
 ## Architecture
 
 ### Module System
-- Uses ES modules (`"type": "module"`)
-- Import path aliases defined in `package.json` using Node.js subpath imports:
-  - `#config/*` → `./src/config/*`
-  - `#controller/*` → `./src/controller/*`
-  - `#middleware/*` → `./src/middleware/*`
-  - `#models/*` → `./src/models/*`
-  - `#routes/*` → `./src/routes/*`
-  - `#services/*` → `./src/services/*`
-  - `#utils/*` → `./src/utils/*`
-  - `#validation/*` → `./src/validation/*`
+Uses ES modules (`"type": "module"`) with Node.js subpath imports defined in `package.json`:
+- `#config/*` → `./src/config/*`
+- `#controller/*` → `./src/controller/*`
+- `#middleware/*` → `./src/middleware/*`
+- `#models/*` → `./src/models/*`
+- `#routes/*` → `./src/routes/*`
+- `#services/*` → `./src/services/*`
+- `#utils/*` → `./src/utils/*`
+- `#validation/*` → `./src/validation/*`
 
-### Directory Structure
-```
-src/
-├── app.js              # Express app configuration & middleware setup
-├── index.js            # Entry point (loads dotenv & server)
-├── server.js           # HTTP server initialization
-├── config/             # Configuration (database, logger)
-├── controller/         # Request handlers
-├── services/           # Business logic layer
-├── routes/             # Route definitions
-├── models/             # Drizzle ORM schemas
-├── validations/        # Zod validation schemas
-├── middleware/         # Express middleware (currently empty)
-└── utils/              # Utility functions (jwt, cookies, format)
-```
+### Application Bootstrap
+- **Entry point**: `src/index.js` loads `dotenv/config` then imports `server.js`
+- **App config**: `src/app.js` configures Express middleware and registers routes
+- **Server**: `src/server.js` starts HTTP server on configured port
 
 ### Request Flow
-1. **Routes** (`src/routes/*.routes.js`) define endpoints
-2. **Controllers** (`src/controller/*.controller.js`) handle requests:
-   - Validate input using Zod schemas from `src/validations/`
-   - Call service layer functions
-   - Format responses
-3. **Services** (`src/services/*.service.js`) contain business logic:
-   - Database interactions using Drizzle ORM
-   - Password hashing (bcrypt)
+1. **Middleware chain** (in order):
+   - `helmet()` - Security headers
+   - `cors()` - Cross-origin resource sharing
+   - `express.json()` & `express.urlencoded()` - Body parsing
+   - `cookieParser()` - Cookie parsing
+   - `morgan()` - HTTP request logging (piped to Winston)
+   - `securityMiddleware` - Arcjet security (shield, bot detection, rate limiting)
+
+2. **Routes** (`src/routes/*.routes.js`) - Endpoint definitions
+3. **Controllers** (`src/controller/*.controller.js`) - Request handlers:
+   - Validate input using Zod `.safeParse()`
+   - Call service layer
+   - Format responses with appropriate status codes
+4. **Services** (`src/services/*.service.js`) - Business logic:
+   - Database queries via Drizzle ORM
+   - Password hashing (bcrypt with 10 rounds)
    - Data transformations
-4. **Models** (`src/models/*.model.js`) define database schemas using Drizzle
+5. **Models** (`src/models/*.model.js`) - Drizzle schema definitions
 
-### Key Technologies & Patterns
+### Key Technologies
 
-#### Database (Drizzle ORM)
-- PostgreSQL with Neon serverless driver (`@neondatabase/serverless`)
-- Schema-first approach: models in `src/models/*.model.js`
-- Database instance exported from `src/config/database.js`
+#### Database (Drizzle ORM + Neon)
+- PostgreSQL with `@neondatabase/serverless` driver
+- Database instance: `db` exported from `src/config/database.js`
+- Development mode: Neon Local proxy at `http://neon-local:5432/sql` (Docker)
+- Production mode: Direct Neon Cloud connection
 - Migrations stored in `drizzle/` directory
+- Schema location specified in `drizzle.config.js`
 
-#### Authentication
-- JWT tokens stored in httpOnly cookies (15 min expiry)
-- Password hashing via bcrypt (10 rounds)
-- JWT utilities in `src/utils/jwt.js`
-- Cookie utilities in `src/utils/cookies.js`
+#### Authentication & Session Management
+- JWT tokens with 1 day expiry (configured in `src/utils/jwt.js`)
+- Tokens stored in httpOnly cookies (15 min expiry via `src/utils/cookies.js`)
+- Cookie options: `httpOnly`, `secure` (production only), `sameSite: 'strict'`
+- Password hashing: bcrypt with 10 rounds
+- User roles: `user` (default), `admin`
+
+#### Security (Arcjet)
+- Configured in `src/config/arcjet.js` and applied via `src/middleware/security.middleware.js`
+- **Bypassed in non-production** (`NODE_ENV !== 'production'`)
+- Shield protection against common attacks
+- Bot detection (allows search engines and preview services)
+- Role-based rate limiting:
+  - Guest: 5 requests/minute
+  - User: 10 requests/minute
+  - Admin: 20 requests/minute
+- Whitelisted user agents: Postman, Insomnia, Thunder Client, HTTPie, curl, axios, node-fetch
+- Required env var: `ARCJET_KEY`
 
 #### Logging (Winston)
 - Configured in `src/config/logger.js`
-- Logs to `logs/error.lg` and `logs/combined.log`
-- Console logging in non-production environments
+- File transports: `logs/error.lg` (errors only), `logs/combined.log` (all)
+- Console transport in non-production
 - Service name: `acquisition-api`
+- Default level: `info` (override via `LOG_LEVEL` env var)
 
 #### Validation (Zod)
-- All validation schemas in `src/validations/`
+- Schemas in `src/validations/*.validation.js`
 - Use `.safeParse()` in controllers
 - Format errors with `formatValidationError()` from `#utils/format.js`
 
+### Docker Development
+- Development uses `docker-compose.dev.yml` with Neon Local (ephemeral branches)
+- Production uses `docker-compose.prod.yml` with Neon Cloud
+- Scripts: `scripts/dev.sh` and `scripts/prod.sh`
+- Development container mounts `./src` for hot-reloading and `./logs` for persistence
+
 ## Code Style
 
-### ESLint Rules
-- 2-space indentation
-- Single quotes
-- Semicolons required
+### ESLint (eslint.config.js)
+- 2-space indentation, switch cases indented
+- Single quotes, semicolons required
 - Unix line endings
 - Prefer const/arrow functions over var/function
 - Unused vars allowed if prefixed with `_`
+- No console warnings (allowed for Node.js apps)
 
-### Prettier Configuration
+### Prettier (.prettierrc)
 - Single quotes, semicolons
 - 80 character line width
-- 2-space tabs, no hard tabs
+- 2-space tabs (soft tabs)
 - Trailing commas (ES5)
-- Arrow function parens: avoid
+- Arrow function parens: avoid (e.g., `x => x`)
 
 ## Environment Variables
 
-Required in `.env`:
+Required in `.env`, `.env.development`, or `.env.production`:
 - `DATABASE_URL` - Neon PostgreSQL connection string
 - `JWT_SECRET` - Secret key for JWT signing
+- `ARCJET_KEY` - Arcjet API key (production only)
 - `PORT` - Server port (default: 3000)
-- `NODE_ENV` - Environment (affects logging and cookie security)
-- `LOG_LEVEL` - Winston log level (default: 'info')
+- `NODE_ENV` - Environment (`development`, `production`)
+- `LOG_LEVEL` - Winston log level (default: `info`)
 
 ## Adding New Features
 
 ### Adding a New Route
-1. Create validation schema in `src/validations/<feature>.validation.js`
+1. Create Zod validation schema in `src/validations/<feature>.validation.js`
 2. Create service functions in `src/services/<feature>.service.js`
 3. Create controller in `src/controller/<feature>.controller.js`
+   - Use `.safeParse()` for validation
+   - Call service layer
+   - Handle errors with appropriate status codes
 4. Define routes in `src/routes/<feature>.routes.js`
-5. Register routes in `src/app.js`
+5. Register routes in `src/app.js` using `app.use('/api/<feature>', <feature>Routes)`
 
 ### Adding Database Models
 1. Define schema in `src/models/<model>.model.js` using Drizzle syntax
-2. Run `npm run db:generate` to create migration
-3. Run `npm run db:migrate` to apply migration
-4. Import model in services using `#models/<model>.model.js`
+2. Run `npm run db:generate` to create migration files
+3. Run `npm run db:migrate` to apply migrations
+4. Import model in services: `import { modelName } from '#models/<model>.model.js'`
 
 ## Testing
 
-No test framework is currently configured. Before adding tests, check for existing test commands in `package.json` or consult the team.
+No test framework currently configured. ESLint config includes Jest globals for future test implementation.

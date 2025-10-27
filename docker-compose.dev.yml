@@ -31,6 +31,8 @@ services:
     env_file:
       - .env.development
     environment:
+      # Set Node environment to development
+      NODE_ENV: development
       # Override DATABASE_URL to point to neon-local service
       DATABASE_URL: postgresql://postgres:postgres@neon-local:5432/neondb
     volumes:
