@@ -607,3 +607,7 @@
 {"level":"info","message":"::1 - - [27/Oct/2025:06:50:39 +0000] \"GET /health HTTP/1.1\" 200 78 \"-\" \"-\"","service":"acquisition-api"}
 {"level":"info","message":"Bypassing security middleware (NODE_ENV: development)","service":"acquisition-api"}
 {"level":"info","message":"::1 - - [27/Oct/2025:06:51:09 +0000] \"GET /health HTTP/1.1\" 200 78 \"-\" \"-\"","service":"acquisition-api"}
+{"level":"info","message":"Bypassing security middleware (NODE_ENV: development)","service":"acquisition-api"}
+{"level":"info","message":"::1 - - [27/Oct/2025:06:51:39 +0000] \"GET /health HTTP/1.1\" 200 78 \"-\" \"-\"","service":"acquisition-api"}
+{"level":"info","message":"Bypassing security middleware (NODE_ENV: development)","service":"acquisition-api"}
+{"level":"info","message":"::1 - - [27/Oct/2025:06:52:09 +0000] \"GET /health HTTP/1.1\" 200 78 \"-\" \"-\"","service":"acquisition-api"}
