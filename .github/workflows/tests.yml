@@ -50,31 +50,24 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify PostgreSQL connection
+      - name: Wait for PostgreSQL
         run: |
-          npm install -g pg
-          node -e "
-          const { Client } = require('pg');
-          const client = new Client({
-            connectionString: process.env.DATABASE_URL
-          });
-          client.connect()
-            .then(() => {
-              console.log('✅ PostgreSQL connected successfully');
-              return client.end();
-            })
-            .catch(err => {
-              console.error('❌ PostgreSQL connection failed:', err);
-              process.exit(1);
-            });
-          "
+          echo "Waiting for PostgreSQL to be ready..."
+          for i in {1..30}; do
+            if pg_isready -h localhost -p 5432 -U test; then
+              echo "✅ PostgreSQL is ready!"
+              break
+            fi
+            echo "Waiting for PostgreSQL... ($i/30)"
+            sleep 1
+          done
 
       - name: Setup database
         run: |
-          # Run migrations if you have them
+          # Uncomment and customize these lines if you have migrations/seeds
           # npm run db:migrate
           # npm run db:seed
-          echo "Database setup completed"
+          echo "✅ Database setup completed"
 
       - name: Run tests
         id: tests
@@ -94,11 +87,11 @@ jobs:
         run: |
           echo "## Test Results 🧪" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-
+          
           if [ "${{ steps.tests.outcome }}" == "success" ]; then
             echo "### ✅ All tests passed successfully!" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-
+          
             # Add coverage info if available
             if [ -f coverage/coverage-summary.json ]; then
               echo "### 📊 Coverage Report" >> $GITHUB_STEP_SUMMARY
