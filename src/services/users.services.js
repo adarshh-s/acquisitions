@@ -1,36 +1,41 @@
 import logger from '#config/logger.js';
-import {db} from '#config/database.js';
-import {users} from '#models/user.model.js';
-import {eq} from 'drizzle-orm';
-import {hashPassword} from '#services/auth.service.js';
+import { db } from '#config/database.js';
+import { users } from '#models/user.model.js';
+import { eq } from 'drizzle-orm';
+import { hashPassword } from '#services/auth.service.js';
 
-export const getAllUsers =  async () => {
+export const getAllUsers = async () => {
   try {
-    return await db.select({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      role: users.role,
-      createdAt: users.createdAt,
-      updatedAt: users.updatedAt,
-    }).from(users);
-
-  }catch (e) {
+    return await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
+      .from(users);
+  } catch (e) {
     logger.error('Error fetching users:', e);
     throw e;
   }
 };
 
-export const getUserById = async (id) => {
+export const getUserById = async id => {
   try {
-    const [user] = await db.select({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-      role: users.role,
-      createdAt: users.createdAt,
-      updatedAt: users.updatedAt,
-    }).from(users).where(eq(users.id, id)).limit(1);
+    const [user] = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
 
     if (!user) {
       throw new Error('User not found');
@@ -55,7 +60,7 @@ export const updateUser = async (id, updates) => {
       throw new Error('User not found');
     }
 
-    const updateData = {...updates};
+    const updateData = { ...updates };
 
     if (updates.password) {
       updateData.password = await hashPassword(updates.password);
@@ -96,7 +101,7 @@ export const updateUser = async (id, updates) => {
   }
 };
 
-export const deleteUser = async (id) => {
+export const deleteUser = async id => {
   try {
     const [existingUser] = await db
       .select()
@@ -111,7 +116,7 @@ export const deleteUser = async (id) => {
     await db.delete(users).where(eq(users.id, id));
 
     logger.info(`User ${id} deleted successfully`);
-    return {id, message: 'User deleted successfully'};
+    return { id, message: 'User deleted successfully' };
   } catch (e) {
     logger.error('Error deleting user:', e);
     throw e;

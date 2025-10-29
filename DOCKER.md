@@ -59,6 +59,7 @@ docker-compose -f docker-compose.dev.yml up -d --build
 ```
 
 This will:
+
 1. Start the Neon Local proxy container
 2. Create an ephemeral database branch from your parent branch
 3. Start your application connected to this ephemeral branch
@@ -169,11 +170,13 @@ docker-compose -f docker-compose.prod.yml down
 ### How Neon Local Works
 
 Neon Local acts as a proxy that:
+
 1. Creates a temporary database branch when the container starts
 2. Routes all PostgreSQL connections to this ephemeral branch
 3. Automatically deletes the branch when the container stops
 
 This ensures:
+
 - Fresh database state for each development session
 - No manual cleanup required
 - Isolated development environments
@@ -236,6 +239,7 @@ docker exec -it acquisitions-app-dev npm run db:studio
 **Problem**: Container exits immediately or shows authentication errors.
 
 **Solution**:
+
 - Verify `NEON_API_KEY`, `NEON_PROJECT_ID`, and `PARENT_BRANCH_ID` are correct
 - Check Neon API key has proper permissions
 - View logs: `docker-compose -f docker-compose.dev.yml logs neon-local`
@@ -245,6 +249,7 @@ docker exec -it acquisitions-app-dev npm run db:studio
 **Problem**: Connection refused or timeout errors.
 
 **Solution**:
+
 - Ensure Neon Local is healthy: `docker ps` (should show "healthy" status)
 - Check network connectivity: `docker exec acquisitions-app-dev ping neon-local`
 - Verify DATABASE_URL in logs doesn't expose actual credentials
@@ -254,6 +259,7 @@ docker exec -it acquisitions-app-dev npm run db:studio
 **Problem**: `Error: bind: address already in use`
 
 **Solution**:
+
 - Check if port 3000 or 5432 is already in use: `lsof -i :3000` or `lsof -i :5432`
 - Stop conflicting services or change ports in docker-compose files
 
@@ -262,6 +268,7 @@ docker exec -it acquisitions-app-dev npm run db:studio
 **Problem**: Migration errors or schema mismatches.
 
 **Solution**:
+
 - Ensure database is accessible
 - Check migration files in `drizzle/` directory
 - Run migrations manually: `docker exec -it acquisitions-app-dev npm run db:migrate`
@@ -271,17 +278,20 @@ docker exec -it acquisitions-app-dev npm run db:studio
 ### Using Docker Image in Production
 
 1. **Build the image**:
+
 ```bash
 docker build -t acquisitions-api:latest .
 ```
 
 2. **Push to registry** (e.g., Docker Hub, AWS ECR, GCP Artifact Registry):
+
 ```bash
 docker tag acquisitions-api:latest your-registry/acquisitions-api:latest
 docker push your-registry/acquisitions-api:latest
 ```
 
 3. **Deploy with environment variables**:
+
 ```bash
 docker run -d \
   -p 3000:3000 \
@@ -312,23 +322,23 @@ spec:
         app: acquisitions-api
     spec:
       containers:
-      - name: api
-        image: your-registry/acquisitions-api:latest
-        ports:
-        - containerPort: 3000
-        env:
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: neon-db-secret
-              key: connection-string
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: jwt-secret
-              key: secret
-        - name: NODE_ENV
-          value: "production"
+        - name: api
+          image: your-registry/acquisitions-api:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: neon-db-secret
+                  key: connection-string
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-secret
+                  key: secret
+            - name: NODE_ENV
+              value: 'production'
 ```
 
 ## Additional Resources

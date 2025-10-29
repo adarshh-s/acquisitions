@@ -1,4 +1,4 @@
-import {jwttoken} from '#utils/jwt.js';
+import { jwttoken } from '#utils/jwt.js';
 import logger from '#config/logger.js';
 
 export const authenticate = (req, res, next) => {
@@ -8,7 +8,7 @@ export const authenticate = (req, res, next) => {
     if (!token) {
       return res.status(401).json({
         error: 'Authentication required',
-        message: 'No token provided'
+        message: 'No token provided',
       });
     }
 
@@ -19,7 +19,7 @@ export const authenticate = (req, res, next) => {
     logger.error('Authentication error:', e);
     return res.status(401).json({
       error: 'Authentication failed',
-      message: 'Invalid or expired token'
+      message: 'Invalid or expired token',
     });
   }
 };
@@ -28,14 +28,14 @@ export const requireAdmin = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({
       error: 'Authentication required',
-      message: 'No user information found'
+      message: 'No user information found',
     });
   }
 
   if (req.user.role !== 'admin') {
     return res.status(403).json({
       error: 'Forbidden',
-      message: 'Admin access required'
+      message: 'Admin access required',
     });
   }
 

@@ -1,5 +1,5 @@
 import aj from '#config/arcjet.js';
-import {slidingWindow} from '@arcjet/node';
+import { slidingWindow } from '@arcjet/node';
 import logger from '#config/logger.js';
 
 const securityMiddleware = async (req, res, next) => {
@@ -21,7 +21,7 @@ const securityMiddleware = async (req, res, next) => {
       'HTTPie',
       'curl',
       'axios',
-      'node-fetch'
+      'node-fetch',
     ];
 
     const isWhitelisted = whitelistedUserAgents.some(agent =>
@@ -29,7 +29,9 @@ const securityMiddleware = async (req, res, next) => {
     );
 
     if (isWhitelisted) {
-      logger.info('Whitelisted user agent detected, bypassing checks', { userAgent });
+      logger.info('Whitelisted user agent detected, bypassing checks', {
+        userAgent,
+      });
       return next();
     }
 
@@ -56,12 +58,14 @@ const securityMiddleware = async (req, res, next) => {
         message = 'Request limit exceeded. Slow down!';
     }
 
-    const client = aj.withRule(slidingWindow({
-      mode: 'LIVE',
-      interval: '1m',
-      max: limit,
-      name: `${role}-rate-limit`
-    }));
+    const client = aj.withRule(
+      slidingWindow({
+        mode: 'LIVE',
+        interval: '1m',
+        max: limit,
+        name: `${role}-rate-limit`,
+      })
+    );
 
     const decision = await client.protect(req);
 
@@ -71,11 +75,11 @@ const securityMiddleware = async (req, res, next) => {
           ip: req.ip,
           userAgent: req.get('User-Agent'),
           path: req.path,
-          method: req.method
+          method: req.method,
         });
         return res.status(403).json({
           error: 'Forbidden',
-          message: 'Automated requests are not allowed'
+          message: 'Automated requests are not allowed',
         });
       }
 
@@ -84,11 +88,11 @@ const securityMiddleware = async (req, res, next) => {
           ip: req.ip,
           userAgent: req.get('User-Agent'),
           path: req.path,
-          method: req.method
+          method: req.method,
         });
         return res.status(403).json({
           error: 'Forbidden',
-          message: 'Request blocked by security policy'
+          message: 'Request blocked by security policy',
         });
       }
 
@@ -97,22 +101,21 @@ const securityMiddleware = async (req, res, next) => {
           ip: req.ip,
           userAgent: req.get('User-Agent'),
           path: req.path,
-          role
+          role,
         });
         return res.status(429).json({
           error: 'Too Many Requests',
-          message
+          message,
         });
       }
     }
 
     next();
-
   } catch (e) {
     logger.error('Arcjet middleware error:', {
       error: e.message,
       stack: e.stack,
-      path: req.path
+      path: req.path,
     });
 
     // Always continue on error to avoid breaking the app
