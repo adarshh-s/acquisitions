@@ -15,6 +15,23 @@ jobs:
     name: Run Tests
     runs-on: ubuntu-latest
 
+    # PostgreSQL service container
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        # Health checks to ensure postgres is ready
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       NODE_ENV: test
       NODE_OPTIONS: --experimental-vm-modules
@@ -33,6 +50,32 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify PostgreSQL connection
+        run: |
+          npm install -g pg
+          node -e "
+          const { Client } = require('pg');
+          const client = new Client({
+            connectionString: process.env.DATABASE_URL
+          });
+          client.connect()
+            .then(() => {
+              console.log('✅ PostgreSQL connected successfully');
+              return client.end();
+            })
+            .catch(err => {
+              console.error('❌ PostgreSQL connection failed:', err);
+              process.exit(1);
+            });
+          "
+
+      - name: Setup database
+        run: |
+          # Run migrations if you have them
+          # npm run db:migrate
+          # npm run db:seed
+          echo "Database setup completed"
+
       - name: Run tests
         id: tests
         run: npm test
@@ -49,19 +92,29 @@ jobs:
       - name: Generate test summary
         if: always()
         run: |
-          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "## Test Results 🧪" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
           if [ "${{ steps.tests.outcome }}" == "success" ]; then
-            echo "✅ All tests passed successfully!" >> $GITHUB_STEP_SUMMARY
+            echo "### ✅ All tests passed successfully!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          
+            # Add coverage info if available
             if [ -f coverage/coverage-summary.json ]; then
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "### Coverage Report" >> $GITHUB_STEP_SUMMARY
+              echo "### 📊 Coverage Report" >> $GITHUB_STEP_SUMMARY
               echo "Coverage reports have been uploaded as artifacts." >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "Download the artifact to view detailed coverage information." >> $GITHUB_STEP_SUMMARY
             fi
           else
-            echo "❌ Some tests failed. Please review the logs above." >> $GITHUB_STEP_SUMMARY
+            echo "### ❌ Tests Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please check the test output above for details." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Action Required:** Review and fix the failing tests before merging." >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Annotate test failures
+      - name: Fail workflow if tests failed
         if: steps.tests.outcome == 'failure'
         run: |
           echo "::error::Tests failed. Please check the test output for details."
