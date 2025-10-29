@@ -25,7 +25,6 @@ jobs:
           POSTGRES_DB: test_db
         ports:
           - 5432:5432
-        # Health checks to ensure postgres is ready
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -64,7 +63,8 @@ jobs:
 
       - name: Setup database
         run: |
-          # Uncomment and customize these lines if you have migrations/seeds
+          echo "Setting up database..."
+          # Uncomment these lines if you have migrations or seeds:
           # npm run db:migrate
           # npm run db:seed
           echo "✅ Database setup completed"
@@ -87,16 +87,15 @@ jobs:
         run: |
           echo "## Test Results 🧪" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ "${{ steps.tests.outcome }}" == "success" ]; then
             echo "### ✅ All tests passed successfully!" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-          
-            # Add coverage info if available
+
             if [ -f coverage/coverage-summary.json ]; then
               echo "### 📊 Coverage Report" >> $GITHUB_STEP_SUMMARY
-              echo "Coverage reports have been uploaded as artifacts." >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
+              echo "Coverage reports have been uploaded as artifacts." >> $GITHUB_STEP_SUMMARY
               echo "Download the artifact to view detailed coverage information." >> $GITHUB_STEP_SUMMARY
             fi
           else
